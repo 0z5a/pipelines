@@ -227,7 +227,12 @@ def executor_input_to_dict(
             == pipeline_spec_pb2.ParameterType.ParameterTypeEnum.NUMBER_INTEGER
         ):
             parameter_values[param_name] = int(param_value)
-        elif parameter_type in executor_output_utils.NESTED_PARAMETER_TYPES:
+        elif (
+            parameter_type in executor_output_utils.NESTED_PARAMETER_TYPES
+            # Undeclared inputs are f-string channels, which the remote
+            # launcher renders without a fractional part for whole numbers.
+            or param_name not in parameter_types
+        ):
             parameter_values[param_name] = (
                 executor_output_utils.cast_nested_whole_numbers(param_value)
             )

@@ -84,6 +84,10 @@
 * Local execution passes whole numbers inside `List` and `Dict` parameters
   and outputs as ints, as the remote backend does, instead of floats.
 
+* Local execution renders whole-number channels in f-string arguments without a
+  fractional part (for example `epochs=5` instead of `epochs=5.0`), as the remote
+  backend does.
+
 * `dsl.ParallelFor` raises a `ValueError` naming the key when a dict item uses a key the loop
   item reserves (`name`, `task_name`, `channel_type`, `full_name`, `pattern`, `task`,
   `items_or_pipeline_channel`), instead of crashing or hanging during compilation.

@@ -18,7 +18,7 @@ import unittest
 from google.protobuf import json_format
 
 from kfp import dsl
-from kfp.local import executor_input_utils, testing_utilities
+from kfp.local import executor_input_utils, placeholder_utils, testing_utilities
 from kfp.pipeline_spec import pipeline_spec_pb2
 
 
@@ -503,6 +503,59 @@ class TestExecutorInputToDict(unittest.TestCase):
         # Top-level scalars keep their existing handling.
         self.assertIsInstance(values['y'], float)
         self.assertEqual(values['text'], '1.0')
+
+    def test_whole_numbers_in_f_string_channels_render_without_fraction(self):
+        # f-string channels are not declared inputs. The remote launcher
+        # renders whole numbers in them without a fractional part.
+        component_spec = pipeline_spec_pb2.ComponentSpec()
+        json_format.ParseDict(
+            {
+                'inputDefinitions': {
+                    'parameters': {'msg': {'parameterType': 'STRING'}}
+                },
+                'executorLabel': 'exec-comp',
+            },
+            component_spec,
+        )
+        executor_input = pipeline_spec_pb2.ExecutorInput()
+        json_format.ParseDict(
+            {
+                'inputs': {
+                    'parameterValues': {
+                        'msg': "{{$.inputs.parameters['pipelinechannel--epochs']}}"
+                        " {{$.inputs.parameters['pipelinechannel--lr']}}"
+                        " {{$.inputs.parameters['pipelinechannel--flag']}}"
+                        " {{$.inputs.parameters['pipelinechannel--name']}}",
+                        'pipelinechannel--epochs': 5,
+                        'pipelinechannel--lr': 0.5,
+                        'pipelinechannel--flag': True,
+                        'pipelinechannel--name': '1.0',
+                    }
+                },
+                'outputs': {'outputFile': '/foo/executor_output.json'},
+            },
+            executor_input,
+        )
+
+        executor_input_dict = executor_input_utils.executor_input_to_dict(
+            executor_input=executor_input,
+            component_spec=component_spec,
+        )
+        executor_input_dict = (
+            placeholder_utils.resolve_self_references_in_executor_input(
+                executor_input_dict=executor_input_dict,
+                pipeline_resource_name='my-pipeline',
+                task_resource_name='comp',
+                pipeline_root='/foo',
+                pipeline_job_id='123',
+                pipeline_task_id='456',
+            )
+        )
+
+        self.assertEqual(
+            executor_input_dict['inputs']['parameterValues']['msg'],
+            '5 0.5 true 1.0',
+        )
 
 
 if __name__ == '__main__':
